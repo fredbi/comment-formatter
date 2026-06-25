@@ -35,7 +35,10 @@ type Block struct {
 var (
 	reBullet   = regexp.MustCompile(`^[-*+]\s`)
 	reNumbered = regexp.MustCompile(`^\d+[.)]\s`)
-	reHeading  = regexp.MustCompile(`^#\s`)
+	// reHeading matches markdown-style headings, single or multi-hash ("#
+	// Overview", "## Details"). godoc only renders single-hash headings, but all
+	// of them are preserved verbatim — never terminated or wrapped.
+	reHeading = regexp.MustCompile(`^#+\s`)
 	// reLinkDef matches a markdown reference-link definition, e.g. "[spec]:
 	// https://example.com".
 	//

@@ -7,3 +7,4 @@
 
 # Go fuzz corpus (regenerated on failure)
 testdata/fuzz/
+.mcp.json

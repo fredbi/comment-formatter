@@ -20,4 +20,13 @@ func Configure() {
 // Deprecated: use NewThing instead because this old API is going away soon in the next release.
 func OldThing() {}
 
+// Sections documents the headings.
+//
+// # Overview
+//
+// ## Details
+//
+// ### Sub heading without a trailing period
+func Sections() {}
+
 func doThing() {}

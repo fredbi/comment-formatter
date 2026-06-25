@@ -23,4 +23,13 @@ func Configure() {
 // the next release.
 func OldThing() {}
 
+// Sections documents the headings.
+//
+// # Overview
+//
+// ## Details
+//
+// ### Sub heading without a trailing period
+func Sections() {}
+
 func doThing() {}

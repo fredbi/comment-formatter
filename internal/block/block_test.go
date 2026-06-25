@@ -40,6 +40,8 @@ func TestFoldable(t *testing.T) {
 		{"- bullet", false},
 		{"1. numbered", false},
 		{"# heading", false},
+		{"## subheading", false},
+		{"### deep heading", false},
 		{"[spec]: https://example.com", false},
 		{"[not a def] but prose", true},
 	}
