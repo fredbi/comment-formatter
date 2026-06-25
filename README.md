@@ -71,6 +71,7 @@ For prose:
 - Trailing/inline comments (`x := 1 // sets x`)
 - Directive comments (`//go:generate`, `//go:build`, `//nolint…`, `//line …`,
   legacy `// +build`)
+- SPDX license headers (`// SPDX-License-Identifier: …`, `// SPDX-FileCopyrightText: …`)
 - Generated files (`// Code generated … DO NOT EDIT.`)
 - Indented blocks (code, list continuations), `- `/`1. ` lists, `# ` headings
 - Markdown link definitions (`[ref]: https://…`) — kept on one line, never

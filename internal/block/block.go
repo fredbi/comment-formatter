@@ -113,7 +113,8 @@ func foldable(line string) bool {
 }
 
 // IsDirective reports whether the raw comment-group text is a directive,
-// build-constraint, or generated-code marker that must not be reformatted.
+// build-constraint, SPDX license header, or generated-code marker that must not
+// be reformatted.
 func IsDirective(raw string) bool {
 	for line := range strings.SplitSeq(raw, "\n") {
 		line = strings.TrimLeft(line, " \t")
@@ -121,6 +122,8 @@ func IsDirective(raw string) bool {
 		case strings.HasPrefix(line, "//line "), line == "//line":
 			return true
 		case strings.HasPrefix(line, "//nolint"):
+			return true
+		case strings.HasPrefix(line, "// SPDX"), strings.HasPrefix(line, "//SPDX"):
 			return true
 		case reDirective.MatchString(line):
 			return true

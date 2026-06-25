@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: 2026 Fred. This line stays put and keeps no trailing period even though it is long enough to wrap
+
 package golden
 
 // Handler does the thing.

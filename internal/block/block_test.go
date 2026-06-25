@@ -68,6 +68,8 @@ func TestIsDirective(t *testing.T) {
 		{"//nolint:all", true},
 		{"//nolint", true},
 		{"//revive:disable", true},
+		{"// SPDX-License-Identifier: MIT", true},
+		{"// SPDX-FileCopyrightText: 2026 Fred", true},
 		{"//line foo.go:1", true},
 		{"// +build linux", true},
 		{"// a normal comment", false},
