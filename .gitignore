@@ -1,0 +1,9 @@
+# Build artifacts
+/comment-formatter
+/cf
+
+# Local editor / tool state
+.claude/settings.local.json
+
+# Go fuzz corpus (regenerated on failure)
+testdata/fuzz/
