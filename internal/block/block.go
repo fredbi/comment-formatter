@@ -1,14 +1,13 @@
 // Package block splits a marker-stripped comment body into blank-line-delimited
-// blocks and classifies each as prose, code, list, or heading.
+// blocks and classifies each as foldable prose or verbatim.
 //
-// It also recognizes directive comments that must be passed through verbatim.
+// A block is foldable only when every one of its lines is plain prose: not
+// indented, and not a list item, heading, or markdown link definition.
 //
-// Classification mirrors how go/doc/comment (and therefore gofmt) interprets
-// doc-comment structure: indented lines are code, "- "/"1. " lines are lists,
-// "# " lines are headings, everything else is prose.
-//
-// Only prose blocks are reflowed by the formatter; the rest are preserved
-// (gofmt canonicalizes doc-comment structure on the final pass).
+// Any other shape (an indented line, a "- " or "1. " list, a "# " heading, a
+// "[ref]: url" link definition) makes the whole block verbatim, so its line
+// structure is preserved untouched.
+// Only foldable blocks are reflowed by the formatter.
 package block
 
 import (
@@ -16,18 +15,15 @@ import (
 	"strings"
 )
 
-// Kind classifies a block's content.
+// Kind classifies a block.
 type Kind int
 
 const (
-	// Prose is free-flowing sentences, the only kind that gets reflowed.
+	// Prose is foldable free-flowing text.
 	Prose Kind = iota
-	// Code is an indented (verbatim) block.
-	Code
-	// List is a bullet or numbered list.
-	List
-	// Heading is a "# " heading line.
-	Heading
+	// Verbatim is preserved exactly: indented blocks, lists, headings and link
+	// definitions.
+	Verbatim
 )
 
 // Block is a run of consecutive non-blank body lines plus its classification.
@@ -37,9 +33,14 @@ type Block struct {
 }
 
 var (
-	reBullet   = regexp.MustCompile(`^\s*[-*+]\s`)
-	reNumbered = regexp.MustCompile(`^\s*\d+[.)]\s`)
+	reBullet   = regexp.MustCompile(`^[-*+]\s`)
+	reNumbered = regexp.MustCompile(`^\d+[.)]\s`)
 	reHeading  = regexp.MustCompile(`^#\s`)
+	// reLinkDef matches a markdown reference-link definition, e.g. "[spec]:
+	// https://example.com".
+	//
+	// Such lines must never be wrapped.
+	reLinkDef = regexp.MustCompile(`^\[[^\]]+\]:(\s|$)`)
 
 	// reDirective matches tool directive comments such as //go:generate,
 	// //go:build, //nolint:all, //revive:disable — a marker with no space
@@ -78,18 +79,36 @@ func Split(body string) []Block {
 	return blocks
 }
 
-// classify determines the kind of a non-empty block from its first line.
+// classify returns Prose only when every line is foldable plain prose.
 func classify(lines []string) Kind {
-	first := lines[0]
+	for _, line := range lines {
+		if !foldable(line) {
+			return Verbatim
+		}
+	}
+	return Prose
+}
+
+// foldable reports whether a stripped body line is plain prose that may be
+// rewrapped.
+//
+// Indented lines (the marker for code, list continuations and other structure)
+// and list/heading/link-definition lines are not foldable.
+func foldable(line string) bool {
+	if line == "" {
+		return true // blank lines never occur inside a block, but be safe
+	}
+	if line[0] == ' ' || line[0] == '\t' {
+		return false
+	}
 	switch {
-	case reHeading.MatchString(first):
-		return Heading
-	case reBullet.MatchString(first), reNumbered.MatchString(first):
-		return List
-	case len(first) > 0 && (first[0] == ' ' || first[0] == '\t'):
-		return Code
+	case reBullet.MatchString(line),
+		reNumbered.MatchString(line),
+		reHeading.MatchString(line),
+		reLinkDef.MatchString(line):
+		return false
 	default:
-		return Prose
+		return true
 	}
 }
 
@@ -100,6 +119,8 @@ func IsDirective(raw string) bool {
 		line = strings.TrimLeft(line, " \t")
 		switch {
 		case strings.HasPrefix(line, "//line "), line == "//line":
+			return true
+		case strings.HasPrefix(line, "//nolint"):
 			return true
 		case reDirective.MatchString(line):
 			return true

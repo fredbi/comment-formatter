@@ -46,6 +46,10 @@ Each reformatted comment's body is split into blocks (separated by blank lines).
 **Prose** blocks are reformatted; **code** (indented), **list** (`- ` / `1. `) and
 **heading** (`# `) blocks are preserved.
 
+A block counts as prose only when *every* line is plain prose. A single
+indented line, list item, heading, or markdown link definition makes the whole
+block verbatim, so its layout is preserved untouched.
+
 For prose:
 
 1. **Full stop** — every prose block ends in `.`/`!`/`?`/`:`/`)`/`]`; a `.` is
@@ -65,9 +69,12 @@ For prose:
 
 - `/* … */` block comments
 - Trailing/inline comments (`x := 1 // sets x`)
-- Directive comments (`//go:generate`, `//go:build`, `//nolint:…`, `//line …`,
+- Directive comments (`//go:generate`, `//go:build`, `//nolint…`, `//line …`,
   legacy `// +build`)
 - Generated files (`// Code generated … DO NOT EDIT.`)
+- Indented blocks (code, list continuations), `- `/`1. ` lists, `# ` headings
+- Markdown link definitions (`[ref]: https://…`) — kept on one line, never
+  wrapped
 
 ## Not (yet) supported
 

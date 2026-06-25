@@ -3,15 +3,49 @@ package block
 import "testing"
 
 func TestSplitAndClassify(t *testing.T) {
-	body := "Intro prose here.\n\n\tcode block\n\n  - a list\n  - item two\n\n# Heading\n\nMore prose."
+	body := "Intro prose here.\n\n\tcode block\n\n  - a list\n  - item two\n\n# Heading\n\n[ref]: https://example.com\n\nMore prose."
 	blocks := Split(body)
-	want := []Kind{Prose, Code, List, Heading, Prose}
+	want := []Kind{Prose, Verbatim, Verbatim, Verbatim, Verbatim, Prose}
 	if len(blocks) != len(want) {
 		t.Fatalf("got %d blocks, want %d: %+v", len(blocks), len(want), blocks)
 	}
 	for i, k := range want {
 		if blocks[i].Kind != k {
 			t.Errorf("block %d kind = %v, want %v (lines %q)", i, blocks[i].Kind, k, blocks[i].Lines)
+		}
+	}
+}
+
+func TestClassifyMixedBlockIsVerbatim(t *testing.T) {
+	// A prose lead-in followed by indented list lines (no blank between) must be
+	// preserved verbatim so the indented lines are not folded.
+	body := "Options:\n  - first\n  - second"
+	blocks := Split(body)
+	if len(blocks) != 1 {
+		t.Fatalf("got %d blocks, want 1", len(blocks))
+	}
+	if blocks[0].Kind != Verbatim {
+		t.Errorf("mixed prose+indented block: kind = %v, want Verbatim", blocks[0].Kind)
+	}
+}
+
+func TestFoldable(t *testing.T) {
+	tests := []struct {
+		line string
+		want bool
+	}{
+		{"plain prose line", true},
+		{"  indented", false},
+		{"\tindented", false},
+		{"- bullet", false},
+		{"1. numbered", false},
+		{"# heading", false},
+		{"[spec]: https://example.com", false},
+		{"[not a def] but prose", true},
+	}
+	for _, tc := range tests {
+		if got := foldable(tc.line); got != tc.want {
+			t.Errorf("foldable(%q) = %v, want %v", tc.line, got, tc.want)
 		}
 	}
 }
@@ -30,7 +64,9 @@ func TestIsDirective(t *testing.T) {
 	}{
 		{"//go:generate stringer", true},
 		{"//go:build linux", true},
+		{"//go:noinline", true},
 		{"//nolint:all", true},
+		{"//nolint", true},
 		{"//revive:disable", true},
 		{"//line foo.go:1", true},
 		{"// +build linux", true},
