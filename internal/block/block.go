@@ -53,6 +53,11 @@ var (
 	reLegacyBuild = regexp.MustCompile(`^//\s*\+build\b`)
 	// reGenerated matches the "Code generated ... DO NOT EDIT." marker line.
 	reGenerated = regexp.MustCompile(`^// Code generated .* DO NOT EDIT\.$`)
+	// reExampleOutput matches the "// Output:" (or "// Unordered output:") line
+	// that opens the expected-output block of a testable example. It mirrors the
+	// pattern go/doc uses to recognise example output, applied here to the
+	// marker-stripped first line of a comment group.
+	reExampleOutput = regexp.MustCompile(`(?i)^[[:space:]]*(unordered )?output:`)
 )
 
 // Split breaks a stripped comment body into classified blocks.
@@ -135,6 +140,21 @@ func IsDirective(raw string) bool {
 		}
 	}
 	return false
+}
+
+// IsExampleOutput reports whether the raw comment-group text opens with an
+// example "// Output:" (or "// Unordered output:") marker.
+//
+// Such a group holds the expected output of a testable example: its lines are
+// compared verbatim by the test runner, so reflowing them would break the
+// example. Only the first line is inspected — the caller is expected to gate
+// this on the group living inside an Example function (see
+// [github.com/fredbi/comment-formatter/internal/source.CommentGroup.InExampleFunc]).
+func IsExampleOutput(raw string) bool {
+	first, _, _ := strings.Cut(raw, "\n")
+	first = strings.TrimLeft(first, " \t")
+	first = strings.TrimPrefix(first, "//")
+	return reExampleOutput.MatchString(first)
 }
 
 // IsGenerated reports whether src is a generated file (carries a "Code

@@ -63,6 +63,56 @@ func TestGolden(t *testing.T) {
 	}
 }
 
+// exampleSrc holds a testable example whose Output block must survive untouched,
+// alongside a same-named comment shape that must NOT be preserved.
+const exampleSrc = `package golden
+
+import "fmt"
+
+func ExampleFoo() {
+	fmt.Println("hello")
+	// Output:
+	// hello this expected line is intentionally far longer than eighty columns so that a reflow would corrupt the example were it ever applied
+}
+
+func notAnExample() {
+	// Output: this is not inside an example so this long line should be reflowed by the formatter as ordinary prose without any preservation here today
+	fmt.Println("x")
+}
+`
+
+// TestExampleOutputPreservation checks that the "// Output:" block of a testable
+// example is preserved only in *_test.go files, and only inside Example funcs.
+func TestExampleOutputPreservation(t *testing.T) {
+	const outputLine = "// hello this expected line is intentionally far longer than eighty columns so that a reflow would corrupt the example were it ever applied"
+	// The look-alike comment, as a single unbroken source line. Reflow wraps it
+	// (and adds a trailing period), so its survival verbatim means preservation.
+	const notExampleLine = "// Output: this is not inside an example so this long line should be reflowed by the formatter as ordinary prose without any preservation here today"
+
+	// In a test file the example Output block is left verbatim...
+	out, err := Format("example_test.go", []byte(exampleSrc), DefaultOptions())
+	if err != nil {
+		t.Fatalf("Format(test): %v", err)
+	}
+	if !strings.Contains(string(out), outputLine) {
+		t.Errorf("example Output block was modified in a _test.go file:\n%s", out)
+	}
+	// ...while the look-alike comment in a non-example function is still reflowed.
+	if strings.Contains(string(out), notExampleLine) {
+		t.Errorf("non-example comment was not reflowed:\n%s", out)
+	}
+
+	// The same source in a non-test file gets no special treatment: the long
+	// Output line is reflowed like any other prose.
+	out, err = Format("example.go", []byte(exampleSrc), DefaultOptions())
+	if err != nil {
+		t.Fatalf("Format(non-test): %v", err)
+	}
+	if strings.Contains(string(out), outputLine) {
+		t.Errorf("example Output block should be reflowed in a non-test file:\n%s", out)
+	}
+}
+
 func FuzzFormatIdempotent(f *testing.F) {
 	seeds := []string{
 		"package p\n\n// Foo does X. It also does Y.\nfunc Foo() {}\n",

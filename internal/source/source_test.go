@@ -46,6 +46,47 @@ func TestExtract(t *testing.T) {
 	}
 }
 
+const exampleSrc = `package p
+
+// ExampleFoo doc comment.
+func ExampleFoo() {
+	println("hi")
+	// Output:
+	// hi
+}
+
+// notExample doc comment.
+func notExample() {
+	// inside a plain function
+	println("x")
+}
+`
+
+func TestExtractInExampleFunc(t *testing.T) {
+	_, groups, err := Extract("sample_test.go", []byte(exampleSrc))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	byText := map[string]CommentGroup{}
+	for _, g := range groups {
+		byText[strings.TrimSpace(g.Text)] = g
+	}
+
+	// The doc comment on the example sits before the body, so it is not inside.
+	if g := byText["// ExampleFoo doc comment."]; g.InExampleFunc {
+		t.Errorf("example doc comment should not be InExampleFunc: %+v", g)
+	}
+	// The Output block is inside the example body.
+	if g, ok := byText["// Output:\n\t// hi"]; !ok || !g.InExampleFunc {
+		t.Errorf("output block should be InExampleFunc: ok=%v %+v", ok, g)
+	}
+	// Comments in an ordinary function are not flagged.
+	if g := byText["// inside a plain function"]; g.InExampleFunc {
+		t.Errorf("plain-function comment should not be InExampleFunc: %+v", g)
+	}
+}
+
 func TestApplyBottomToTop(t *testing.T) {
 	src := []byte("package p\n\n// one\nvar a int\n\n// two\nvar b int\n")
 	_, groups, err := Extract("x.go", src)

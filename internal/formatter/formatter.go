@@ -5,11 +5,13 @@
 // Eligibility: only //-style comments that occupy their own line(s) are
 // reformatted.
 // Trailing inline comments, /* */ block comments, directive and build comments,
-// and generated files are passed through untouched.
+// the "// Output:" block of a testable example, and generated files are passed
+// through untouched.
 package formatter
 
 import (
 	"bytes"
+	"strings"
 
 	"github.com/fredbi/comment-formatter/internal/block"
 	"github.com/fredbi/comment-formatter/internal/marker"
@@ -56,9 +58,11 @@ func Format(filename string, src []byte, opt Options) ([]byte, error) {
 		return src, err
 	}
 
+	isTest := strings.HasSuffix(filename, "_test.go")
+
 	var edits []source.Edit
 	for _, g := range groups {
-		if !eligible(g) {
+		if !eligible(g, isTest) {
 			continue
 		}
 		body := marker.Strip(g.Text)
@@ -90,13 +94,21 @@ func Changed(filename string, src []byte, opt Options) (bool, error) {
 }
 
 // eligible reports whether a comment group should be reformatted.
-func eligible(g source.CommentGroup) bool {
+//
+// isTest indicates the group's file carries the "_test.go" suffix — the same
+// signal go/build uses to recognise test sources. It gates the example-output
+// exception, which is only meaningful in test files.
+func eligible(g source.CommentGroup, isTest bool) bool {
 	switch {
 	case !g.LineComment: // /* */ block comment
 		return false
 	case g.Inline: // trailing comment after code
 		return false
 	case block.IsDirective(g.Text):
+		return false
+	case isTest && g.InExampleFunc && block.IsExampleOutput(g.Text):
+		// The expected-output block of a testable example is compared verbatim;
+		// reflowing it would break the example.
 		return false
 	default:
 		return true

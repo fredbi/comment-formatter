@@ -13,6 +13,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"strings"
 )
 
 // CommentGroup describes one comment group located in a source file.
@@ -42,6 +43,12 @@ type CommentGroup struct {
 
 	// LineComment is true for //-style groups, false for /* */ groups.
 	LineComment bool
+
+	// InExampleFunc is true when the group sits inside the body of a testable
+	// example function (a top-level "func Example...()" with no receiver). It
+	// gates the "// Output:" preservation rule, which must not fire for ordinary
+	// comments that merely happen to start with "Output:".
+	InExampleFunc bool
 }
 
 // Extract parses src and returns the file set together with every comment
@@ -54,6 +61,7 @@ func Extract(filename string, src []byte) (*token.FileSet, []CommentGroup, error
 	}
 
 	docGroups := collectDocGroups(file)
+	exampleBodies := collectExampleBodies(fset, file)
 
 	groups := make([]CommentGroup, 0, len(file.Comments))
 	for _, cg := range file.Comments {
@@ -64,16 +72,52 @@ func Extract(filename string, src []byte) (*token.FileSet, []CommentGroup, error
 		end := fset.Position(cg.End()).Offset
 
 		groups = append(groups, CommentGroup{
-			Start:       start,
-			End:         end,
-			Text:        string(src[start:end]),
-			Indent:      lineIndent(src, start),
-			IsDoc:       docGroups[cg],
-			Inline:      hasCodeBefore(src, start),
-			LineComment: cg.List[0].Text[:2] == "//",
+			Start:         start,
+			End:           end,
+			Text:          string(src[start:end]),
+			Indent:        lineIndent(src, start),
+			IsDoc:         docGroups[cg],
+			Inline:        hasCodeBefore(src, start),
+			LineComment:   cg.List[0].Text[:2] == "//",
+			InExampleFunc: withinAny(exampleBodies, start),
 		})
 	}
 	return fset, groups, nil
+}
+
+// span is a half-open byte range [start, end) in the source.
+type span struct{ start, end int }
+
+// collectExampleBodies returns the byte ranges of the bodies of top-level
+// testable example functions — "func Example...()" declarations with no
+// receiver. Comment groups falling inside one of these ranges carry
+// InExampleFunc=true.
+func collectExampleBodies(fset *token.FileSet, file *ast.File) []span {
+	var spans []span
+	for _, decl := range file.Decls {
+		fn, ok := decl.(*ast.FuncDecl)
+		if !ok || fn.Recv != nil || fn.Body == nil {
+			continue
+		}
+		if !strings.HasPrefix(fn.Name.Name, "Example") {
+			continue
+		}
+		spans = append(spans, span{
+			start: fset.Position(fn.Body.Pos()).Offset,
+			end:   fset.Position(fn.Body.End()).Offset,
+		})
+	}
+	return spans
+}
+
+// withinAny reports whether offset lies inside any of the given spans.
+func withinAny(spans []span, offset int) bool {
+	for _, s := range spans {
+		if offset >= s.start && offset < s.end {
+			return true
+		}
+	}
+	return false
 }
 
 // collectDocGroups returns the set of comment groups referenced as the .Doc
